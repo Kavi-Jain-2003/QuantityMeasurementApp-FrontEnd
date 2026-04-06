@@ -55,7 +55,7 @@ import { HistoryService } from '../../shared/services/history.service';
               <option [value]="k">{{ units[activeCat()].units[k].name }} ({{ k }})</option>
             }
           </select>
-          <input class="plain-input" type="number" [value]="result()" placeholder="Result" readonly/>
+          <input class="plain-input" type="number" [value]="getResult()" placeholder="Result" readonly/>
         </div>
       </div>
 
@@ -98,10 +98,11 @@ export class ConverterComponent implements OnInit {
 
   unitKeys = computed(() => this.svc.getKeys(this.activeCat()));
 
-  result = computed(() => {
-    if (this.fromVal === null || isNaN(this.fromVal)) return '';
-    return this.svc.fmt(this.svc.convert(this.fromVal, this.fromUnit, this.toUnit, this.activeCat()));
-  });
+  getResult(): string {
+  if (this.fromVal === null || isNaN(this.fromVal)) return '';
+  return this.svc.fmt(this.svc.convert(this.fromVal, this.fromUnit, this.toUnit, this.activeCat()));
+}
+
 
   formulaText = computed(() => {
     if (this.fromVal === null || isNaN(this.fromVal)) return 'Enter a value above to see the formula';

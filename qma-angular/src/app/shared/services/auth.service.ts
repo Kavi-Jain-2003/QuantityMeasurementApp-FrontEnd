@@ -1,37 +1,130 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, inject, NgZone } from '@angular/core';
 import { Router } from '@angular/router';
+import { environment } from '../../../environments/environment';
 import { User } from '../models/user.model';
 
+/**
+ * AuthService — handles Google Sign-In via the official GSI SDK
+ * (accounts.google.com/gsi/client loaded in index.html) plus
+ * email/password stored in localStorage.
+ *
+ * NO third-party npm auth library — zero peer-dependency conflicts.
+ */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  currentUser = signal<User | null>(null);
+  currentUser    = signal<User | null>(null);
+  googleLoading  = signal(false);
 
-  private readonly MOCK_GOOGLE_USERS: User[] = [
-    { name: 'Alex Johnson',  email: 'alex.johnson@gmail.com',  avatar: 'A', provider: 'google' },
-    { name: 'Sam Rivera',    email: 'sam.rivera@gmail.com',    avatar: 'S', provider: 'google' },
-    { name: 'Morgan Lee',    email: 'morgan.lee@gmail.com',    avatar: 'M', provider: 'google' },
-    { name: 'Jamie Chen',    email: 'jamie.chen@gmail.com',    avatar: 'J', provider: 'google' },
-  ];
+  private router = inject(Router);
+  private zone   = inject(NgZone);
 
-  constructor(private router: Router) {
-    // Restore session from localStorage
+  constructor() {
+    // Restore previous session
     const saved = localStorage.getItem('qma_session');
     if (saved) {
       try { this.currentUser.set(JSON.parse(saved)); } catch { /* ignore */ }
     }
+
+    // Initialise Google GSI after the SDK script has loaded
+    this.initGoogleGSI();
   }
 
+  // ── Initialise Google Identity Services ─────────────────────────
+  private initGoogleGSI(): void {
+    // GSI loads asynchronously — wait for it to be available
+    const tryInit = () => {
+      if (typeof google !== 'undefined' && google?.accounts?.id) {
+        google.accounts.id.initialize({
+          client_id: environment.googleClientId,
+          callback: (response) => {
+            // Run inside Angular zone so change detection fires
+            this.zone.run(() => this.handleGSICredential(response));
+          },
+          auto_select: false,
+          cancel_on_tap_outside: true
+        });
+      } else {
+        // SDK not loaded yet — retry in 200ms
+        setTimeout(tryInit, 200);
+      }
+    };
+    tryInit();
+  }
+
+  // ── Parse the JWT id_token returned by GSI ──────────────────────
+  private handleGSICredential(response: GoogleCredentialResponse): void {
+    try {
+      // Decode the JWT payload (middle part) — base64url encoded
+      const payload = JSON.parse(
+        atob(response.credential.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))
+      ) as {
+        name?: string;
+        email: string;
+        picture?: string;
+        given_name?: string;
+      };
+
+      const name = payload.name || payload.given_name || payload.email.split('@')[0];
+      const u: User = {
+        name,
+        email:    payload.email,
+        avatar:   name[0].toUpperCase(),
+        photoUrl: payload.picture,
+        provider: 'google'
+      };
+
+      this.googleLoading.set(false);
+      this.setUser(u);
+    } catch (err) {
+      this.googleLoading.set(false);
+      console.error('Failed to parse Google credential:', err);
+      throw new Error('PARSE_ERROR');
+    }
+  }
+
+  // ── Trigger Google Sign-In popup ─────────────────────────────────
+  signInWithGoogle(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (typeof google === 'undefined' || !google?.accounts?.id) {
+        reject(new Error('Google GSI SDK not loaded. Check your internet connection.'));
+        return;
+      }
+
+      this.googleLoading.set(true);
+
+      // Temporarily override the callback to capture resolve/reject
+      google.accounts.id.initialize({
+        client_id: environment.googleClientId,
+        callback: (response) => {
+          this.zone.run(() => {
+            try {
+              this.handleGSICredential(response);
+              resolve();
+            } catch (err) {
+              reject(err);
+            }
+          });
+        },
+        auto_select: false,
+        cancel_on_tap_outside: true
+      });
+
+      // Show the Google One-Tap / popup
+      google.accounts.id.prompt();
+    });
+  }
+
+  // ── Email sign-in (localStorage — no backend needed) ────────────
   signInWithEmail(email: string, password: string): { success: boolean; error?: string } {
-    const key = `qma_u_${email}`;
-    const saved = localStorage.getItem(key);
+    const saved = localStorage.getItem(`qma_u_${email}`);
     if (!saved) return { success: false, error: 'Account not found. Please sign up first.' };
-    const user = JSON.parse(saved);
-    if (user.pw !== btoa(password)) return { success: false, error: 'Incorrect password.' };
-    const u: User = { name: user.name, email, avatar: user.name[0].toUpperCase(), provider: 'email' };
-    this.setUser(u);
+    const stored = JSON.parse(saved);
+    if (stored.pw !== btoa(password)) return { success: false, error: 'Incorrect password.' };
+    this.setUser({ name: stored.name, email, avatar: stored.name[0].toUpperCase(), provider: 'email' });
     return { success: true };
   }
 
+  // ── Email sign-up (localStorage) ────────────────────────────────
   signUpWithEmail(
     firstName: string, lastName: string,
     email: string, password: string
@@ -40,18 +133,21 @@ export class AuthService {
     if (localStorage.getItem(key)) return { success: false, error: 'Email already registered.' };
     const name = `${firstName} ${lastName}`;
     localStorage.setItem(key, JSON.stringify({ name, pw: btoa(password) }));
-    const u: User = { name, email, avatar: firstName[0].toUpperCase(), provider: 'email' };
-    this.setUser(u);
+    this.setUser({ name, email, avatar: firstName[0].toUpperCase(), provider: 'email' });
     return { success: true };
   }
 
-  signInWithGoogle(): User {
-    const u = this.MOCK_GOOGLE_USERS[Math.floor(Math.random() * this.MOCK_GOOGLE_USERS.length)];
-    this.setUser(u);
-    return u;
-  }
-
+  // ── Sign out ─────────────────────────────────────────────────────
   signOut(): void {
+    // Disable Google auto-select so user must pick account next time
+    if (typeof google !== 'undefined' && google?.accounts?.id) {
+      google.accounts.id.disableAutoSelect();
+      // Revoke Google token if we have the user's email
+      const email = this.currentUser()?.email;
+      if (email && this.currentUser()?.provider === 'google') {
+        google.accounts.id.revoke(email, () => {});
+      }
+    }
     this.currentUser.set(null);
     localStorage.removeItem('qma_session');
     this.router.navigate(['/auth/login']);

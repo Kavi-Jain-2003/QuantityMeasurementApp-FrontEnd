@@ -693,3 +693,18 @@ input, select { font-family: var(--font-b); outline: none; }
   .chips-grid { grid-template-columns:repeat(auto-fill,minmax(140px,1fr)) }
   .conv-grid { grid-template-columns:1fr }
 }
+
+/* ── Google button loading spinner ── */
+.g-spinner {
+  display: inline-block;
+  width: 14px; height: 14px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: g-spin .55s linear infinite;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+@keyframes g-spin { to { transform: rotate(360deg); } }
+
+.google-btn:disabled { opacity: .7; cursor: not-allowed; }

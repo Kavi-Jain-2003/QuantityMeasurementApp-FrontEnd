@@ -6,11 +6,7 @@ import { ThemeService } from '../shared/services/theme.service';
 import { ToastService } from '../shared/services/toast.service';
 import { filter } from 'rxjs/operators';
 
-interface NavItem {
-  path: string;
-  label: string;
-  icon: string;
-}
+interface NavItem { path: string; label: string; icon: string; }
 
 @Component({
   selector: 'app-dashboard-shell',
@@ -52,7 +48,14 @@ interface NavItem {
 
         <div class="sb-bottom">
           <div class="sb-user">
-            <div class="avatar">{{ userAvatar() }}</div>
+            <!-- Google profile photo or initials avatar -->
+            <div class="avatar" [class.photo-avatar]="userPhoto()">
+              @if (userPhoto()) {
+                <img [src]="userPhoto()!" [alt]="userName()" referrerpolicy="no-referrer"/>
+              } @else {
+                {{ userAvatar() }}
+              }
+            </div>
             <div class="sb-user-info">
               <span>{{ userName() }}</span>
               <small class="provider-badge">{{ userBadge() }}</small>
@@ -71,7 +74,6 @@ interface NavItem {
       <!-- ── MAIN ── -->
       <div class="main-area">
 
-        <!-- Topbar -->
         <header class="topbar">
           <div class="topbar-left">
             <button class="hamburger" (click)="sidebarOpen.set(true)">
@@ -82,12 +84,16 @@ interface NavItem {
               </svg>
             </button>
             <div class="page-title">
-              <svg [innerHTML]="currentPageIcon()" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                   style="width:18px;height:18px;color:var(--accent)">
+                <g [innerHTML]="currentPageIcon()"></g>
+              </svg>
               <span>{{ currentPageTitle() }}</span>
             </div>
           </div>
           <div class="topbar-right">
-            <button class="theme-btn" (click)="theme.toggle()" [title]="theme.isDark() ? 'Light mode' : 'Dark mode'">
+            <button class="theme-btn" (click)="theme.toggle()"
+                    [title]="theme.isDark() ? 'Switch to light mode' : 'Switch to dark mode'">
               @if (theme.isDark()) {
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
@@ -104,54 +110,58 @@ interface NavItem {
                 </svg>
               }
             </button>
-            <div class="avatar topbar-avatar" style="width:32px;height:32px;font-size:.76rem">
-              {{ userAvatar() }}
+
+            <!-- Topbar avatar: Google photo or initials -->
+            <div class="avatar topbar-av" [class.photo-avatar]="userPhoto()">
+              @if (userPhoto()) {
+                <img [src]="userPhoto()!" [alt]="userName()" referrerpolicy="no-referrer"/>
+              } @else {
+                {{ userAvatar() }}
+              }
             </div>
           </div>
         </header>
 
-        <!-- Content -->
         <div class="content-area">
           <router-outlet />
         </div>
       </div>
 
-      <!-- Overlay -->
       <div class="sb-overlay" [class.active]="sidebarOpen()" (click)="closeSidebar()"></div>
     </div>
-  `
+  `,
+  styles: [`
+    .photo-avatar { background: none !important; box-shadow: none !important; overflow: hidden; }
+    .photo-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
+    .topbar-av { width: 32px; height: 32px; font-size: .76rem; }
+  `]
 })
 export class DashboardShellComponent {
-  auth   = inject(AuthService);
-  theme  = inject(ThemeService);
-  toast  = inject(ToastService);
-  router = inject(Router);
+  auth  = inject(AuthService);
+  theme = inject(ThemeService);
+  toast = inject(ToastService);
 
-  user        = this.auth.currentUser;
-  sidebarOpen = signal(false);
+  private router  = inject(Router);
+  private _user   = this.auth.currentUser;
+  sidebarOpen     = signal(false);
 
-  // Safe computed getters — avoids "possibly undefined" strict template errors
-  userName   = computed(() => this.user()?.name?.split(' ')[0] ?? '');
-  userAvatar = computed(() => this.user()?.avatar ?? '');
-  userBadge  = computed(() => this.user()?.provider === 'google' ? '🔵 Google' : '✉ Email');
+  // Strict-template-safe computed getters
+  userName   = computed(() => this._user()?.name?.split(' ')[0] ?? '');
+  userAvatar = computed(() => this._user()?.avatar ?? '');
+  userPhoto  = computed(() => this._user()?.photoUrl ?? null);
+  userBadge  = computed(() =>
+    this._user()?.provider === 'google' ? '🔵 Google' : '✉ Email'
+  );
 
   navItems: NavItem[] = [
-    {
-      path: 'converter', label: 'Converter',
-      icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`
-    },
-    {
-      path: 'compare', label: 'Compare',
-      icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`
-    },
-    {
-      path: 'arithmetic', label: 'Arithmetic',
-      icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`
-    },
-    {
-      path: 'history', label: 'History',
-      icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`
-    }
+    { path: 'converter',  label: 'Converter',
+      icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>` },
+    { path: 'compare',    label: 'Compare',
+      icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>` },
+    { path: 'arithmetic', label: 'Arithmetic',
+      icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>` },
+    { path: 'history',    label: 'History',
+      icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>` },
   ];
 
   private pageMeta: Record<string, { title: string; icon: string }> = {
@@ -165,11 +175,17 @@ export class DashboardShellComponent {
   currentPageIcon  = signal(this.pageMeta['converter'].icon);
 
   constructor() {
-    this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe((e: any) => {
-      const seg = e.urlAfterRedirects.split('/').pop() ?? 'converter';
-      const m   = this.pageMeta[seg];
-      if (m) { this.currentPageTitle.set(m.title); this.currentPageIcon.set(m.icon); }
-    });
+    this.router.events
+      .pipe(filter(e => e instanceof NavigationEnd))
+      .subscribe((e: unknown) => {
+        const nav = e as NavigationEnd;
+        const seg = nav.urlAfterRedirects.split('/').pop() ?? 'converter';
+        const m   = this.pageMeta[seg];
+        if (m) {
+          this.currentPageTitle.set(m.title);
+          this.currentPageIcon.set(m.icon);
+        }
+      });
   }
 
   closeSidebar(): void { this.sidebarOpen.set(false); }

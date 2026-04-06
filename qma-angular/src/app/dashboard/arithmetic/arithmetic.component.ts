@@ -103,7 +103,7 @@ export class ArithmeticComponent implements OnInit {
 
   unitKeys = computed(() => this.svc.getKeys(this.activeCat()));
 
-  calcResult = computed(() => {
+  calcResult() {
     const a = this.valA, b = this.valB;
     if (a === null || b === null || isNaN(+a) || isNaN(+b)) {
       return { value: '—', unit: '', note: '' };
@@ -129,7 +129,7 @@ export class ArithmeticComponent implements OnInit {
       default: res = 0;
     }
     return { value: this.svc.fmt(res), unit, note: extraNote };
-  });
+  }
 
   ngOnInit(): void { this.setDefaults(); }
 

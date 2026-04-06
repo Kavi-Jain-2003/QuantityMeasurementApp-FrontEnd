@@ -85,7 +85,7 @@ export class CompareComponent implements OnInit {
 
   unitKeys = computed(() => this.svc.getKeys(this.activeCat()));
 
-  comparison = computed(() => {
+  comparison() {
     const a = this.valA, b = this.valB;
     if (a === null || b === null || isNaN(+a) || isNaN(+b)) {
       return { badge: 'VS', badgeColor: '', text: 'Enter values above to compare', resultColor: '', barA: '50%', barB: '50%' };
@@ -108,7 +108,7 @@ export class CompareComponent implements OnInit {
       return { badge: '<', badgeColor: 'var(--green)', text: `B is ${pct}% greater than A`,
                resultColor: 'var(--green-l)', barA: wA, barB: wB };
     }
-  });
+  }
 
   ngOnInit(): void { this.setDefaults(); }
 
