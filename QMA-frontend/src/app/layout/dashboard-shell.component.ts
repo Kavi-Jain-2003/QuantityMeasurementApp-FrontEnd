@@ -146,21 +146,25 @@ export class DashboardShellComponent {
   sidebarOpen     = signal(false);
 
   // Strict-template-safe computed getters
-  userName   = computed(() => this._user()?.name?.split(' ')[0] ?? '');
-  userAvatar = computed(() => this._user()?.avatar ?? '');
+  userName   = computed(() => this.auth.isGuest() ? 'Guest' : (this._user()?.name?.split(' ')[0] ?? ''));
+  userAvatar = computed(() => this.auth.isGuest() ? 'G' : (this._user()?.avatar ?? ''));
   userPhoto  = computed(() => this._user()?.photoUrl ?? null);
   userBadge  = computed(() =>
-    this._user()?.provider === 'google' ? '🔵 Google' : '✉ Email'
+    this.auth.isGuest()
+      ? '👤 Guest'
+      : this._user()?.provider === 'google'
+        ? '🔵 Google'
+        : '✉ Email'
   );
 
   navItems: NavItem[] = [
-    { path: 'converter',  label: 'Converter',
+    { path: 'converter',  label: '📐 Converter',
       icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>` },
-    { path: 'compare',    label: 'Compare',
+    { path: 'compare',    label: '⚖️ Compare',
       icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>` },
-    { path: 'arithmetic', label: 'Arithmetic',
+    { path: 'arithmetic', label: '➕ Arithmetic',
       icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>` },
-    { path: 'history',    label: 'History',
+    { path: 'history',    label: '🕘 History',
       icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>` },
   ];
 

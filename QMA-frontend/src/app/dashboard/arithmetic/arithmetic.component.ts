@@ -5,6 +5,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { UnitsService, Category } from '../../shared/services/units.service';
 import { HistoryService } from '../../shared/services/history.service';
 import { ToastService } from '../../shared/services/toast.service';
+import { AuthService } from '../../shared/services/auth.service';
 import { environment } from '../../../environments/environment';
 
 const UNIT_MAP: Record<string, string> = {
@@ -31,7 +32,7 @@ const OP_ENDPOINT: Record<string, string> = {
     </div>
 
     <div class="cat-bar">
-      @for (cat of categories; track cat.key) {
+      @for (cat of categoryButtons; track cat.key) {
         <button class="cat-btn" [class.active]="activeCat() === cat.key" (click)="selectCat(cat.key)">
           {{ cat.emoji }} {{ cat.label }}
         </button>
@@ -103,6 +104,7 @@ export class ArithmeticComponent implements OnInit {
   private svc    = inject(UnitsService);
   private hist   = inject(HistoryService);
   private toast  = inject(ToastService);
+  private auth   = inject(AuthService);
   private http   = inject(HttpClient);
 
   units     = this.svc.UNITS;
@@ -123,6 +125,13 @@ export class ArithmeticComponent implements OnInit {
     { key: 'weight'      as Category, emoji: '⚖️', label: 'Weight' },
     { key: 'temperature' as Category, emoji: '🌡️', label: 'Temperature' },
     { key: 'volume'      as Category, emoji: '💧', label: 'Volume' },
+  ];
+
+  categoryButtons = [
+    { key: 'length' as Category, emoji: '📏', label: 'Length' },
+    { key: 'weight' as Category, emoji: '⚖️', label: 'Weight' },
+    { key: 'temperature' as Category, emoji: '🌡️', label: 'Temperature' },
+    { key: 'volume' as Category, emoji: '💧', label: 'Volume' },
   ];
 
   ops = [
@@ -193,6 +202,7 @@ export class ArithmeticComponent implements OnInit {
 
   private callBackendArithmetic(): void {
     if (this.valA === null || this.valB === null || isNaN(+this.valA) || isNaN(+this.valB)) return;
+    if (this.auth.isGuest()) return;
 
     const r = this.calcResult();
     if (r.value === '—') return;

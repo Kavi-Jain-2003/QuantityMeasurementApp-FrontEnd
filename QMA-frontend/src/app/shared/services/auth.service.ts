@@ -8,6 +8,7 @@ import { User } from '../models/user.model';
 export class AuthService {
   currentUser   = signal<User | null>(null);
   googleLoading = signal(false);
+  private guestMode = signal(false);
 
   private router = inject(Router);
   private zone   = inject(NgZone);
@@ -16,7 +17,13 @@ export class AuthService {
   constructor() {
     const saved = localStorage.getItem('qma_session');
     const jwt   = localStorage.getItem('qma_jwt');
-    // FIX 1: Only restore session if JWT is also present (prevents dashboard on first load)
+    if (localStorage.getItem('qma_guest') === '1') {
+      this.guestMode.set(true);
+      localStorage.removeItem('qma_session');
+      localStorage.removeItem('qma_jwt');
+    }
+
+    // Only restore session if JWT is also present.
     if (saved && jwt) {
       try { this.currentUser.set(JSON.parse(saved)); } catch { /* ignore */ }
     } else {
@@ -37,6 +44,14 @@ export class AuthService {
     this.setUser(u);
   }
 
+  continueAsGuest(): void {
+    this.clearPersistentSession();
+    this.guestMode.set(true);
+    localStorage.setItem('qma_guest', '1');
+    this.currentUser.set(null);
+    this.router.navigate(['/dashboard/converter']);
+  }
+
   private initGoogleGSI(): void {
     const tryInit = () => {
       if (typeof google !== 'undefined' && google?.accounts?.id) {
@@ -55,7 +70,6 @@ export class AuthService {
     tryInit();
   }
 
-  // FIX 2: After parsing Google token, call backend /auth/google to store user in DB and get JWT
   private handleGSICredential(response: GoogleCredentialResponse): void {
     try {
       const payload = JSON.parse(
@@ -78,6 +92,8 @@ export class AuthService {
       ).subscribe({
         next: (res) => {
           localStorage.setItem('qma_jwt', res.token);
+          localStorage.removeItem('qma_guest');
+          this.guestMode.set(false);
           this.googleLoading.set(false);
           this.setUser(u);
         },
@@ -117,7 +133,7 @@ export class AuthService {
   }
 
   signOut(): void {
-    localStorage.removeItem('qma_jwt');
+    this.clearPersistentSession();
     if (typeof google !== 'undefined' && google?.accounts?.id) {
       google.accounts.id.disableAutoSelect();
       const email = this.currentUser()?.email;
@@ -126,18 +142,33 @@ export class AuthService {
       }
     }
     this.currentUser.set(null);
-    localStorage.removeItem('qma_session');
     this.router.navigate(['/auth/login']);
   }
 
-  // FIX 1: Requires both session signal AND a JWT in storage
   isAuthenticated(): boolean {
     return this.currentUser() !== null && !!localStorage.getItem('qma_jwt');
   }
 
+  isGuest(): boolean {
+    return this.guestMode() || localStorage.getItem('qma_guest') === '1';
+  }
+
+  hasActiveSession(): boolean {
+    return this.isAuthenticated() || this.isGuest();
+  }
+
   setUser(u: User): void {
+    this.guestMode.set(false);
+    localStorage.removeItem('qma_guest');
     this.currentUser.set(u);
     localStorage.setItem('qma_session', JSON.stringify(u));
     this.router.navigate(['/dashboard/converter']);
+  }
+
+  private clearPersistentSession(): void {
+    localStorage.removeItem('qma_jwt');
+    localStorage.removeItem('qma_session');
+    localStorage.removeItem('qma_guest');
+    this.guestMode.set(false);
   }
 }

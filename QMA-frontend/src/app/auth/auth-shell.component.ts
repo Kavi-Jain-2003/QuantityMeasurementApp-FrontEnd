@@ -1,6 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { RouterOutlet, RouterLink, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { AuthService } from '../shared/services/auth.service';
 import { ThemeService } from '../shared/services/theme.service';
 
 @Component({
@@ -18,6 +19,12 @@ import { ThemeService } from '../shared/services/theme.service';
       </div>
 
       <!-- FIX 3: Dark mode toggle on login page -->
+      <div class="auth-actions">
+      <button class="guest-btn" (click)="auth.continueAsGuest()"
+              title="Enter the dashboard without signing in">
+        Continue as Guest
+      </button>
+
       <button class="auth-theme-btn" (click)="theme.toggle()"
               [title]="theme.isDark() ? 'Switch to light mode' : 'Switch to dark mode'">
         @if (theme.isDark()) {
@@ -36,6 +43,7 @@ import { ThemeService } from '../shared/services/theme.service';
           </svg>
         }
       </button>
+      </div>
 
       <!-- Left: Form panel -->
       <div class="auth-panel">
@@ -90,11 +98,16 @@ import { ThemeService } from '../shared/services/theme.service';
     </div>
   `,
   styles: [`
-    .auth-theme-btn {
+    .auth-actions {
       position: fixed;
       top: 1.2rem;
       right: 1.2rem;
       z-index: 100;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .auth-theme-btn {
       background: var(--card-bg, rgba(255,255,255,0.1));
       border: 1px solid var(--border, rgba(255,255,255,0.15));
       border-radius: 50%;
@@ -108,6 +121,24 @@ import { ThemeService } from '../shared/services/theme.service';
       transition: background 0.2s, box-shadow 0.2s;
       backdrop-filter: blur(8px);
     }
+    .guest-btn {
+      border: 1px solid var(--border, rgba(255,255,255,0.15));
+      background: var(--card-bg, rgba(255,255,255,0.12));
+      color: var(--text, #fff);
+      border-radius: 999px;
+      padding: 0.6rem 1rem;
+      font-size: 0.86rem;
+      font-weight: 700;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+    }
+    .guest-btn:hover {
+      background: var(--accent, #6c63ff);
+      color: #fff;
+      transform: translateY(-1px);
+      box-shadow: 0 0 0 3px rgba(108,99,255,0.18);
+    }
     .auth-theme-btn:hover {
       background: var(--accent, #6c63ff);
       color: #fff;
@@ -116,6 +147,7 @@ import { ThemeService } from '../shared/services/theme.service';
   `]
 })
 export class AuthShellComponent {
+  auth  = inject(AuthService);
   theme = inject(ThemeService);
   isLogin = true;
 

@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { UnitsService, Category } from '../../shared/services/units.service';
 import { HistoryService } from '../../shared/services/history.service';
 import { ApiService } from '../../shared/services/api.service';
+import { AuthService } from '../../shared/services/auth.service';
 
 interface QuantityDTO { value: number; unit: string; }
 interface QuantityMeasurementDTO {
@@ -77,7 +78,7 @@ const UNIT_MAP: Record<string, string> = {
               <option [value]="k">{{ units[activeCat()].units[k].name }} ({{ k }})</option>
             }
           </select>
-          <input class="plain-input" type="number" [value]="displayResult()" placeholder="Result" readonly/>
+          <input class="plain-input" type="text" [value]="displayResult()" placeholder="Result" readonly/>
         </div>
       </div>
 
@@ -112,6 +113,7 @@ export class ConverterComponent implements OnInit {
   private svc = inject(UnitsService);
   private hist = inject(HistoryService);
   private api = inject(ApiService);
+  private auth = inject(AuthService);
 
   units = this.svc.UNITS;
   activeCat = signal<Category>('length');
@@ -126,18 +128,17 @@ export class ConverterComponent implements OnInit {
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   categories = [
-    { key: 'length' as Category, emoji: '??', label: 'Length' },
-    { key: 'weight' as Category, emoji: '??', label: 'Weight' },
-    { key: 'temperature' as Category, emoji: '???', label: 'Temperature' },
-    { key: 'volume' as Category, emoji: '??', label: 'Volume' },
+    { key: 'length' as Category, emoji: '📏', label: 'Length' },
+    { key: 'weight' as Category, emoji: '⚖️', label: 'Weight' },
+    { key: 'temperature' as Category, emoji: '🌡️', label: 'Temperature' },
+    { key: 'volume' as Category, emoji: '💧', label: 'Volume' },
   ];
 
   unitKeys = computed(() => this.svc.getKeys(this.activeCat()));
 
   displayResult(): string {
-    if (this.backendResult()) {
-      const parts = this.backendResult()!.result?.split(' ') ?? [];
-      return parts[0] ?? '';
+    if (this.backendResult()?.result) {
+      return this.backendResult()!.result;
     }
     if (this.fromVal === null || isNaN(this.fromVal)) return '';
     return this.svc.fmt(this.svc.convert(this.fromVal, this.fromUnit, this.toUnit, this.activeCat()));
@@ -162,7 +163,9 @@ export class ConverterComponent implements OnInit {
 
   ngOnInit(): void {
     this.setDefaults();
-    this.hist.loadFromBackend();
+    if (!this.auth.isGuest()) {
+      this.hist.loadFromBackend();
+    }
   }
 
   selectCat(cat: Category): void {
@@ -196,6 +199,7 @@ export class ConverterComponent implements OnInit {
 
   private async callBackend(): Promise<void> {
     if (this.fromVal === null || isNaN(this.fromVal)) return;
+    if (this.auth.isGuest()) return;
 
     const cleanValue = Number(this.fromVal.toString().replace(/,/g, ''));
     if (isNaN(cleanValue)) {

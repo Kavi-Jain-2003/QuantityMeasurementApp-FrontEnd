@@ -5,7 +5,7 @@ import { AuthService } from '../services/auth.service';
 export const authGuard: CanActivateFn = () => {
   const auth   = inject(AuthService);
   const router = inject(Router);
-  if (auth.isAuthenticated()) return true;
+  if (auth.hasActiveSession()) return true;
   router.navigate(['/auth/login']);
   return false;
 };
@@ -13,7 +13,7 @@ export const authGuard: CanActivateFn = () => {
 export const guestGuard: CanActivateFn = () => {
   const auth   = inject(AuthService);
   const router = inject(Router);
-  if (!auth.isAuthenticated()) return true;
+  if (!auth.hasActiveSession()) return true;
   router.navigate(['/dashboard/converter']);
   return false;
 };

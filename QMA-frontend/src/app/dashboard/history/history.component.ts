@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { HistoryService } from '../../shared/services/history.service';
 import { UnitsService } from '../../shared/services/units.service';
 import { ToastService } from '../../shared/services/toast.service';
+import { AuthService } from '../../shared/services/auth.service';
 
 @Component({
   selector: 'app-history',
@@ -12,10 +13,13 @@ import { ToastService } from '../../shared/services/toast.service';
     <div class="page-header">
       <h1>History</h1>
       <p>Your recent calculations and conversions</p>
+      @if (auth.isGuest()) {
+        <p class="guest-note">Guest mode keeps history local only and does not save anything to the database.</p>
+      }
     </div>
 
     <div class="hist-actions">
-      <button class="clear-btn" (click)="clear()">
+      <button class="clear-btn" (click)="clear()" [disabled]="auth.isGuest()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polyline points="3 6 5 6 21 6"/>
           <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
@@ -52,6 +56,7 @@ export class HistoryComponent implements OnInit {
   hist  = inject(HistoryService);
   units = inject(UnitsService);
   toast = inject(ToastService);
+  auth  = inject(AuthService);
 
   ngOnInit(): void {
     // Refresh from backend every time this page is opened
@@ -63,6 +68,10 @@ export class HistoryComponent implements OnInit {
   }
 
   clear(): void {
+    if (this.auth.isGuest()) {
+      this.toast.show('Guest history stays local only', 'success');
+      return;
+    }
     this.hist.clear();
     this.toast.show('History cleared', 'success');
   }

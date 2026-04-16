@@ -1,12 +1,14 @@
 import { Injectable, signal, inject } from '@angular/core';
 import { HistoryEntry } from '../models/history.model';
 import { ApiService } from './api.service';
+import { AuthService } from './auth.service';
 
 @Injectable({ providedIn: 'root' })
 export class HistoryService {
   entries = signal<HistoryEntry[]>([]);
 
   private api = inject(ApiService);
+  private auth = inject(AuthService);
   private activeCacheKey = '';
 
   constructor() {
@@ -16,6 +18,10 @@ export class HistoryService {
 
   loadFromBackend(): void {
     this.syncNamespace();
+    if (this.auth.isGuest()) {
+      this.entries.set([]);
+      return;
+    }
     const token = localStorage.getItem('qma_jwt');
     if (!token) return;
 
@@ -32,6 +38,7 @@ export class HistoryService {
 
   push(entry: Omit<HistoryEntry, 'time' | 'date'>): void {
     this.syncNamespace();
+    if (this.auth.isGuest()) return;
     const now = new Date();
     const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const date = now.toLocaleDateString();
@@ -53,6 +60,10 @@ export class HistoryService {
 
   clear(): void {
     this.syncNamespace();
+    if (this.auth.isGuest()) {
+      this.entries.set([]);
+      return;
+    }
     const previous = this.entries();
     this.entries.set([]);
     this.clearCache(this.activeCacheKey);
@@ -155,6 +166,11 @@ export class HistoryService {
   }
 
   private syncNamespace(): void {
+    if (this.auth.isGuest()) {
+      this.activeCacheKey = 'qma_hist:guest';
+      this.entries.set([]);
+      return;
+    }
     const key = this.cacheKey();
     if (key === this.activeCacheKey) return;
 
