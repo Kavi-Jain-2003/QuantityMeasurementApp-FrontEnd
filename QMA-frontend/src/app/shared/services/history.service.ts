@@ -1,4 +1,6 @@
 import { Injectable, signal, inject } from '@angular/core';
+import { Observable, of, throwError } from 'rxjs';
+import { catchError, tap } from 'rxjs/operators';
 import { HistoryEntry } from '../models/history.model';
 import { ApiService } from './api.service';
 import { AuthService } from './auth.service';
@@ -28,10 +30,11 @@ export class HistoryService {
     this.api.getHistory().subscribe({
       next: (records) => {
         const mapped = (records ?? []).map((record: any) => this.mapBackendRecord(record));
-        this.replaceWithMerged(mapped);
+        this.replaceWithBackend(mapped);
       },
       error: () => {
         // Keep cached history if backend is unavailable.
+        console.warn('History load failed for current user');
       }
     });
   }
@@ -58,21 +61,26 @@ export class HistoryService {
     });
   }
 
-  clear(): void {
+  clear(): Observable<void> {
     this.syncNamespace();
     if (this.auth.isGuest()) {
       this.entries.set([]);
-      return;
+      return of(void 0);
     }
     const previous = this.entries();
     this.entries.set([]);
     this.clearCache(this.activeCacheKey);
-    this.api.clearHistory().subscribe({
-      error: () => {
+    return this.api.clearHistory().pipe(
+      tap(() => {
+        this.entries.set([]);
+        this.clearCache(this.activeCacheKey);
+      }),
+      catchError((err) => {
         this.entries.set(previous);
         this.persist(this.activeCacheKey, previous);
-      }
-    });
+        return throwError(() => err);
+      })
+    );
   }
 
   private readCache(key: string): HistoryEntry[] {
@@ -97,30 +105,11 @@ export class HistoryService {
     sessionStorage.setItem(key, serialized);
   }
 
-  private replaceWithMerged(incoming: HistoryEntry[]): void {
+  private replaceWithBackend(incoming: HistoryEntry[]): void {
     this.syncNamespace();
-    const merged = this.mergeEntries([...incoming, ...this.entries()]);
-    this.entries.set(merged);
-    this.persist(this.activeCacheKey, merged);
-  }
-
-  private mergeEntries(entries: HistoryEntry[]): HistoryEntry[] {
-    const unique = new Map<string, HistoryEntry>();
-    for (const entry of entries) {
-      unique.set(this.entryKey(entry), entry);
-    }
-    return Array.from(unique.values()).slice(0, 60);
-  }
-
-  private entryKey(entry: HistoryEntry): string {
-    if (entry.fingerprint) return `fp:${entry.fingerprint}`;
-    if (entry.id) return `id:${entry.id}`;
-    return [
-      entry.expr,
-      entry.cat,
-      entry.type,
-      entry.status ?? ''
-    ].join('|');
+    const next = incoming.slice(0, 60);
+    this.entries.set(next);
+    this.persist(this.activeCacheKey, next);
   }
 
   private mapBackendRecord(record: any): HistoryEntry {

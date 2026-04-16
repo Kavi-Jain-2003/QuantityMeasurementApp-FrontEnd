@@ -127,7 +127,7 @@ export class LoginComponent {
 
     // ── POST /auth/login → { status: 200, token: "..." } ─────────
     this.http.post<{ status: number; token: string }>(
-      `${environment.apiUrl}/auth/login`,
+      `${environment.authUrl ?? environment.apiUrl}/auth/login`,
       { username: this.username, password: this.password }
     ).subscribe({
       next: (res) => {

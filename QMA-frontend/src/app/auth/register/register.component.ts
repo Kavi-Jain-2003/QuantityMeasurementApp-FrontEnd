@@ -190,7 +190,7 @@ export class RegisterComponent {
     // ── POST /auth/register ───────────────────────────────────────
     // Backend now returns ResponseEntity with text body
     this.http.post(
-      `${environment.apiUrl}/auth/register`,
+      `${environment.authUrl ?? environment.apiUrl}/auth/register`,
       { username: this.username, password: this.password },
       { responseType: 'text' }
     ).subscribe({

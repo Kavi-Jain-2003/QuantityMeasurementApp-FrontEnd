@@ -6,7 +6,6 @@ import { UnitsService, Category } from '../../shared/services/units.service';
 import { HistoryService } from '../../shared/services/history.service';
 import { ToastService } from '../../shared/services/toast.service';
 import { AuthService } from '../../shared/services/auth.service';
-import { environment } from '../../../environments/environment';
 
 const UNIT_MAP: Record<string, string> = {
   m: 'METRE', km: 'KILOMETRE', cm: 'CENTIMETRE', mm: 'MILLIMETRE',
@@ -226,7 +225,7 @@ export class ArithmeticComponent implements OnInit {
 
     const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
 
-    this.http.post<any>(`${environment.apiUrl}/measurement/${endpoint}`, payload, { headers })
+    this.http.post<any>(`http://localhost:8081/measurement/${endpoint}`, payload, { headers })
       .subscribe({
         next: () => {
           this.autoSaved.set(true);

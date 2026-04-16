@@ -13,6 +13,7 @@ export class AuthService {
   private router = inject(Router);
   private zone   = inject(NgZone);
   private http   = inject(HttpClient);
+  private authBase = environment.authUrl ?? environment.apiUrl;
 
   constructor() {
     const saved = localStorage.getItem('qma_session');
@@ -87,7 +88,7 @@ export class AuthService {
 
       // Call backend to persist Google user in DB and receive a JWT
       this.http.post<{ token: string }>(
-        `${environment.apiUrl}/auth/google`,
+        `${this.authBase}/auth/google`,
         { email: payload.email, name, provider: 'google' }
       ).subscribe({
         next: (res) => {

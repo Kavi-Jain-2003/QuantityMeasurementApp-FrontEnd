@@ -5,7 +5,6 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { UnitsService, Category } from '../../shared/services/units.service';
 import { HistoryService } from '../../shared/services/history.service';
 import { AuthService } from '../../shared/services/auth.service';
-import { environment } from '../../../environments/environment';
 
 const UNIT_MAP: Record<string, string> = {
   m: 'METRE', km: 'KILOMETRE', cm: 'CENTIMETRE', mm: 'MILLIMETRE',
@@ -181,7 +180,7 @@ export class CompareComponent implements OnInit {
     const token = localStorage.getItem('qma_jwt');
     const headers = token ? new HttpHeaders({ Authorization: `Bearer ${token}` }) : new HttpHeaders();
 
-    this.http.post<any>(`${environment.apiUrl}/measurement/compare`, payload, { headers })
+    this.http.post<any>(`http://localhost:8081/measurement/compare`, payload, { headers })
       .subscribe({
         next: () => {
           this.hist.loadFromBackend();

@@ -215,7 +215,7 @@ export class ConverterComponent implements OnInit {
       thatQuantityDTO: { value: 0, unit: backendToUnit }
     };
 
-    this.loading.set(true);
+      this.loading.set(true);
 
     try {
       const entity = await firstValueFrom(this.api.convert(payload));

@@ -72,7 +72,13 @@ export class HistoryComponent implements OnInit {
       this.toast.show('Guest history stays local only', 'success');
       return;
     }
-    this.hist.clear();
-    this.toast.show('History cleared', 'success');
+    this.hist.clear().subscribe({
+      next: () => {
+        this.toast.show('History cleared', 'success');
+      },
+      error: () => {
+        this.toast.show('Could not clear history. Please try again.', 'error');
+      }
+    });
   }
 }
