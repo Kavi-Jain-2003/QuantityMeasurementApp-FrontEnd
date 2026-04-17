@@ -215,7 +215,7 @@ export class ConverterComponent implements OnInit {
       thatQuantityDTO: { value: 0, unit: backendToUnit }
     };
 
-      this.loading.set(true);
+    this.loading.set(true);
 
     try {
       const entity = await firstValueFrom(this.api.convert(payload));
@@ -228,13 +228,23 @@ export class ConverterComponent implements OnInit {
 
       this.backendError.set('');
       this.backendResult.set(entity);
+      this.hist.push({
+        expr: `${cleanValue} ${this.fromUnit} -> ${entity?.result ?? this.svc.fmt(this.svc.convert(this.fromVal, this.fromUnit, this.toUnit, this.activeCat()))}`,
+        cat: this.activeCat(),
+        type: 'convert'
+      });
       this.hist.loadFromBackend();
     } catch (err: any) {
       if (err?.status === 0) {
         this.backendError.set('Backend not reachable');
       } else {
-        this.backendError.set('Conversion failed');
+        this.backendError.set('Backend conversion failed');
       }
+      this.hist.push({
+        expr: `${cleanValue} ${this.fromUnit} -> ${this.svc.fmt(this.svc.convert(this.fromVal, this.fromUnit, this.toUnit, this.activeCat()))}`,
+        cat: this.activeCat(),
+        type: 'convert'
+      });
       this.backendResult.set(null);
     } finally {
       this.loading.set(false);

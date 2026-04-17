@@ -1,10 +1,10 @@
 import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { UnitsService, Category } from '../../shared/services/units.service';
 import { HistoryService } from '../../shared/services/history.service';
 import { AuthService } from '../../shared/services/auth.service';
+import { ApiService } from '../../shared/services/api.service';
 
 const UNIT_MAP: Record<string, string> = {
   m: 'METRE', km: 'KILOMETRE', cm: 'CENTIMETRE', mm: 'MILLIMETRE',
@@ -82,7 +82,7 @@ export class CompareComponent implements OnInit {
   private svc  = inject(UnitsService);
   private hist = inject(HistoryService);
   private auth = inject(AuthService);
-  private http = inject(HttpClient);
+  private api  = inject(ApiService);
 
   units     = this.svc.UNITS;
   activeCat = signal<Category>('length');
@@ -177,15 +177,22 @@ export class CompareComponent implements OnInit {
       thatQuantityDTO: { value: +this.valB, unit: backendUnitB }
     };
 
-    const token = localStorage.getItem('qma_jwt');
-    const headers = token ? new HttpHeaders({ Authorization: `Bearer ${token}` }) : new HttpHeaders();
-
-    this.http.post<any>(`http://localhost:8081/measurement/compare`, payload, { headers })
+    this.api.compare(payload)
       .subscribe({
         next: () => {
+          this.hist.push({
+            expr,
+            cat: this.activeCat(),
+            type: 'compare'
+          });
           this.hist.loadFromBackend();
         },
         error: () => {
+          this.hist.push({
+            expr,
+            cat: this.activeCat(),
+            type: 'compare'
+          });
           this.lastSubmittedExpr = '';
         }
       });

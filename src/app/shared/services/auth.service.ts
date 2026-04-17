@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { User } from '../models/user.model';
+import { timeout } from 'rxjs/operators';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -18,15 +19,26 @@ export class AuthService {
   constructor() {
     const saved = localStorage.getItem('qma_session');
     const jwt   = localStorage.getItem('qma_jwt');
+    let parsedSaved: User | null = null;
     if (localStorage.getItem('qma_guest') === '1') {
       this.guestMode.set(true);
       localStorage.removeItem('qma_session');
       localStorage.removeItem('qma_jwt');
     }
 
-    // Only restore session if JWT is also present.
     if (saved && jwt) {
       try { this.currentUser.set(JSON.parse(saved)); } catch { /* ignore */ }
+    } else if (saved) {
+      try {
+        parsedSaved = JSON.parse(saved);
+        if (parsedSaved?.provider === 'google') {
+          this.currentUser.set(parsedSaved);
+        } else {
+          localStorage.removeItem('qma_session');
+        }
+      } catch {
+        localStorage.removeItem('qma_session');
+      }
     } else {
       // Clear stale session that has no JWT
       localStorage.removeItem('qma_session');
@@ -90,7 +102,7 @@ export class AuthService {
       this.http.post<{ token: string }>(
         `${this.authBase}/auth/google`,
         { email: payload.email, name, provider: 'google' }
-      ).subscribe({
+      ).pipe(timeout(10000)).subscribe({
         next: (res) => {
           localStorage.setItem('qma_jwt', res.token);
           localStorage.removeItem('qma_guest');
@@ -155,7 +167,9 @@ export class AuthService {
   }
 
   hasActiveSession(): boolean {
-    return this.isAuthenticated() || this.isGuest();
+    if (this.isGuest()) return true;
+    if (this.isAuthenticated()) return true;
+    return this.currentUser()?.provider === 'google';
   }
 
   setUser(u: User): void {

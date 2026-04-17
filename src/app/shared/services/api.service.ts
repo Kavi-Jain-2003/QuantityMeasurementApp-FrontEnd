@@ -48,6 +48,10 @@ export class ApiService {
     return this.http.post(`${this.measurementBase}/measurement/divide`, payload, { headers: this.headers() });
   }
 
+  multiply(payload: QuantityMeasurementDTO): Observable<any> {
+    return this.http.post(`${this.measurementBase}/measurement/multiply`, payload, { headers: this.headers() });
+  }
+
   convert(payload: QuantityMeasurementDTO): Observable<any> {
     return this.http.post(`${this.measurementBase}/measurement/convert`, payload, { headers: this.headers() });
   }

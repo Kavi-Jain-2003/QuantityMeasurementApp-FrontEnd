@@ -113,7 +113,14 @@ export class HistoryService {
   }
 
   private mapBackendRecord(record: any): HistoryEntry {
-    const timestamp = record?.timestamp ? new Date(record.timestamp) : new Date();
+    const timestampValue = this.pick(record, [
+      'timestamp',
+      'createdAt',
+      'created_at',
+      'historyTimestamp',
+      'history_timestamp'
+    ]);
+    const timestamp = timestampValue ? new Date(timestampValue) : new Date();
     const input = this.pick(record, ['inputData', 'input_data', 'expression', 'expr', 'input']);
     const output = this.pick(record, ['outputData', 'output_data', 'result', 'output']);
     const operationType = this.pick(record, ['operationType', 'operation_type', 'type']);

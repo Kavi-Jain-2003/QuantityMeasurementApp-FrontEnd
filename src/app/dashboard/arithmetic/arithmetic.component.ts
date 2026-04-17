@@ -1,11 +1,11 @@
 import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { UnitsService, Category } from '../../shared/services/units.service';
 import { HistoryService } from '../../shared/services/history.service';
 import { ToastService } from '../../shared/services/toast.service';
 import { AuthService } from '../../shared/services/auth.service';
+import { ApiService } from '../../shared/services/api.service';
 
 const UNIT_MAP: Record<string, string> = {
   m: 'METRE', km: 'KILOMETRE', cm: 'CENTIMETRE', mm: 'MILLIMETRE',
@@ -104,7 +104,7 @@ export class ArithmeticComponent implements OnInit {
   private hist   = inject(HistoryService);
   private toast  = inject(ToastService);
   private auth   = inject(AuthService);
-  private http   = inject(HttpClient);
+  private api    = inject(ApiService);
 
   units     = this.svc.UNITS;
   activeCat = signal<Category>('length');
@@ -220,23 +220,35 @@ export class ArithmeticComponent implements OnInit {
       thatQuantityDTO: { value: +this.valB, unit: backendUnitB }
     };
 
-    const token = localStorage.getItem('qma_jwt');
-    if (!token) return; // No JWT = user not authenticated, skip backend call
+    const request = endpoint === 'multiply'
+      ? this.api.multiply(payload)
+      : endpoint === 'divide'
+        ? this.api.divide(payload)
+        : endpoint === 'subtract'
+          ? this.api.subtract(payload)
+          : this.api.add(payload);
 
-    const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
-
-    this.http.post<any>(`http://localhost:8081/measurement/${endpoint}`, payload, { headers })
-      .subscribe({
-        next: () => {
-          this.autoSaved.set(true);
-          if (this.autoSavedTimer) clearTimeout(this.autoSavedTimer);
-          this.autoSavedTimer = setTimeout(() => this.autoSaved.set(false), 2500);
-          this.hist.loadFromBackend();
-        },
-        error: (err) => {
-          this.lastSubmittedExpr = '';
-          console.warn('Backend history save failed:', err?.status, err?.message);
-        }
-      });
+    request.subscribe({
+      next: () => {
+        this.autoSaved.set(true);
+        if (this.autoSavedTimer) clearTimeout(this.autoSavedTimer);
+        this.autoSavedTimer = setTimeout(() => this.autoSaved.set(false), 2500);
+        this.hist.push({
+          expr,
+          cat: this.activeCat(),
+          type: 'arithmetic'
+        });
+        this.hist.loadFromBackend();
+      },
+      error: (err) => {
+        this.hist.push({
+          expr,
+          cat: this.activeCat(),
+          type: 'arithmetic'
+        });
+        this.lastSubmittedExpr = '';
+        console.warn('Backend history save failed:', err?.status, err?.message);
+      }
+    });
   }
 }
