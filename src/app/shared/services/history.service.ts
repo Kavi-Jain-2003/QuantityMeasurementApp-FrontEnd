@@ -59,6 +59,16 @@ export class HistoryService {
       this.persist(this.activeCacheKey, updated);
       return updated;
     });
+
+    this.api.saveHistory({
+      operationType: entry.type.toUpperCase(),
+      inputData: entry.expr,
+      outputData: '',
+      status: 'SUCCESS'
+    }).subscribe({
+      next: () => this.loadFromBackend(),
+      error: () => console.warn('History save failed for current user')
+    });
   }
 
   clear(): Observable<void> {

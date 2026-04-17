@@ -233,7 +233,6 @@ export class ConverterComponent implements OnInit {
         cat: this.activeCat(),
         type: 'convert'
       });
-      this.hist.loadFromBackend();
     } catch (err: any) {
       if (err?.status === 0) {
         console.warn('Backend not reachable, using local conversion preview.');

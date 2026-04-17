@@ -185,7 +185,6 @@ export class CompareComponent implements OnInit {
             cat: this.activeCat(),
             type: 'compare'
           });
-          this.hist.loadFromBackend();
         },
         error: () => {
           this.hist.push({

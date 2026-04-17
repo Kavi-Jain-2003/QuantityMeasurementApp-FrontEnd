@@ -56,7 +56,16 @@ export class ApiService {
     return this.http.post(`${this.measurementBase}/measurement/convert`, payload, { headers: this.headers() });
   }
 
-  // ── NEW: Fetch history for the logged-in user from backend ──────────────
+  saveHistory(payload: {
+    operationType: string;
+    inputData: string;
+    outputData?: string;
+    status?: string;
+  }): Observable<void> {
+    return this.http.post<void>(`${this.measurementBase}/measurement/history`, payload, { headers: this.headers() });
+  }
+
+  // Fetch history for the logged-in user from backend
   getHistory(): Observable<any[]> {
     return this.http.get<any[]>(`${this.measurementBase}/measurement/history`, { headers: this.headers() });
   }

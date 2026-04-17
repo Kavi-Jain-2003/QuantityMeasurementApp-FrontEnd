@@ -238,7 +238,6 @@ export class ArithmeticComponent implements OnInit {
           cat: this.activeCat(),
           type: 'arithmetic'
         });
-        this.hist.loadFromBackend();
       },
       error: (err) => {
         this.hist.push({
