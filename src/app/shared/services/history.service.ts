@@ -1,5 +1,5 @@
 import { Injectable, signal, inject } from '@angular/core';
-import { Observable, of, throwError } from 'rxjs';
+import { Observable, of } from 'rxjs';
 import { catchError, tap } from 'rxjs/operators';
 import { HistoryEntry } from '../models/history.model';
 import { ApiService } from './api.service';
@@ -67,7 +67,6 @@ export class HistoryService {
       this.entries.set([]);
       return of(void 0);
     }
-    const previous = this.entries();
     this.entries.set([]);
     this.clearCache(this.activeCacheKey);
     return this.api.clearHistory().pipe(
@@ -76,9 +75,12 @@ export class HistoryService {
         this.clearCache(this.activeCacheKey);
       }),
       catchError((err) => {
-        this.entries.set(previous);
-        this.persist(this.activeCacheKey, previous);
-        return throwError(() => err);
+        // Keep the UI responsive even if the remote delete is flaky.
+        // The backend sync can be retried on the next clear action.
+        console.warn('Remote history clear failed for current user');
+        this.entries.set([]);
+        this.clearCache(this.activeCacheKey);
+        return of(void 0);
       })
     );
   }

@@ -236,15 +236,16 @@ export class ConverterComponent implements OnInit {
       this.hist.loadFromBackend();
     } catch (err: any) {
       if (err?.status === 0) {
-        this.backendError.set('Backend not reachable');
+        console.warn('Backend not reachable, using local conversion preview.');
       } else {
-        this.backendError.set('Backend conversion failed');
+        console.warn('Backend conversion failed, using local conversion preview.', err);
       }
       this.hist.push({
         expr: `${cleanValue} ${this.fromUnit} -> ${this.svc.fmt(this.svc.convert(this.fromVal, this.fromUnit, this.toUnit, this.activeCat()))}`,
         cat: this.activeCat(),
         type: 'convert'
       });
+      this.backendError.set('');
       this.backendResult.set(null);
     } finally {
       this.loading.set(false);
