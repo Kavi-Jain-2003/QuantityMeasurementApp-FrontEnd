@@ -3,23 +3,24 @@ import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { User } from '../models/user.model';
-import { timeout } from 'rxjs/operators';
+import { firstValueFrom, timeout } from 'rxjs';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  currentUser   = signal<User | null>(null);
+  currentUser = signal<User | null>(null);
   googleLoading = signal(false);
   private guestMode = signal(false);
 
   private router = inject(Router);
-  private zone   = inject(NgZone);
-  private http   = inject(HttpClient);
+  private zone = inject(NgZone);
+  private http = inject(HttpClient);
   private authBase = environment.authUrl ?? environment.apiUrl;
 
   constructor() {
     const saved = localStorage.getItem('qma_session');
-    const jwt   = localStorage.getItem('qma_jwt');
+    const jwt = localStorage.getItem('qma_jwt');
     let parsedSaved: User | null = null;
+
     if (localStorage.getItem('qma_guest') === '1') {
       this.guestMode.set(true);
       localStorage.removeItem('qma_session');
@@ -27,7 +28,11 @@ export class AuthService {
     }
 
     if (saved && jwt) {
-      try { this.currentUser.set(JSON.parse(saved)); } catch { /* ignore */ }
+      try {
+        this.currentUser.set(JSON.parse(saved));
+      } catch {
+        // ignore malformed saved session
+      }
     } else if (saved) {
       try {
         parsedSaved = JSON.parse(saved);
@@ -43,6 +48,7 @@ export class AuthService {
       // Clear stale session that has no JWT
       localStorage.removeItem('qma_session');
     }
+
     this.initGoogleGSI();
   }
 
@@ -50,8 +56,8 @@ export class AuthService {
     const name = displayName ?? username;
     const u: User = {
       name,
-      email:    username,
-      avatar:   name[0].toUpperCase(),
+      email: username,
+      avatar: name[0].toUpperCase(),
       provider: 'email'
     };
     this.setUser(u);
@@ -71,7 +77,12 @@ export class AuthService {
         google.accounts.id.initialize({
           client_id: environment.googleClientId,
           callback: (response) => {
-            this.zone.run(() => this.handleGSICredential(response));
+            this.zone.run(() => {
+              void this.handleGSICredential(response).catch((err) => {
+                console.error('Google sign-in failed:', err);
+                this.googleLoading.set(false);
+              });
+            });
           },
           auto_select: false,
           cancel_on_tap_outside: true
@@ -80,47 +91,45 @@ export class AuthService {
         setTimeout(tryInit, 200);
       }
     };
+
     tryInit();
   }
 
-  private handleGSICredential(response: GoogleCredentialResponse): void {
+  private async handleGSICredential(response: GoogleCredentialResponse): Promise<void> {
+    let payload: { name?: string; email: string; picture?: string; given_name?: string };
+
     try {
-      const payload = JSON.parse(
+      payload = JSON.parse(
         atob(response.credential.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))
       ) as { name?: string; email: string; picture?: string; given_name?: string };
-
-      const name = payload.name || payload.given_name || payload.email.split('@')[0];
-      const u: User = {
-        name,
-        email:    payload.email,
-        avatar:   name[0].toUpperCase(),
-        photoUrl: payload.picture,
-        provider: 'google'
-      };
-
-      // Call backend to persist Google user in DB and receive a JWT
-      this.http.post<{ token: string }>(
-        `${this.authBase}/auth/google`,
-        { email: payload.email, name, provider: 'google' }
-      ).pipe(timeout(10000)).subscribe({
-        next: (res) => {
-          localStorage.setItem('qma_jwt', res.token);
-          localStorage.removeItem('qma_guest');
-          this.guestMode.set(false);
-          this.googleLoading.set(false);
-          this.setUser(u);
-        },
-        error: () => {
-          // Fallback: log in locally even if backend is unreachable
-          this.googleLoading.set(false);
-          this.setUser(u);
-        }
-      });
     } catch (err) {
-      this.googleLoading.set(false);
       console.error('Failed to parse Google credential:', err);
       throw new Error('PARSE_ERROR');
     }
+
+    const name = payload.name || payload.given_name || payload.email.split('@')[0];
+    const user: User = {
+      name,
+      email: payload.email,
+      avatar: name[0].toUpperCase(),
+      photoUrl: payload.picture,
+      provider: 'google'
+    };
+
+    // Persist the Google user server-side and only then mark the session active.
+    const res = await firstValueFrom(
+      this.http
+        .post<{ token: string }>(
+          `${this.authBase}/auth/google`,
+          { email: payload.email, name, provider: 'google' }
+        )
+        .pipe(timeout(10000))
+    );
+
+    localStorage.setItem('qma_jwt', res.token);
+    localStorage.removeItem('qma_guest');
+    this.guestMode.set(false);
+    this.setUser(user);
   }
 
   signInWithGoogle(): Promise<void> {
@@ -129,13 +138,21 @@ export class AuthService {
         reject(new Error('Google GSI SDK not loaded. Check your internet connection.'));
         return;
       }
+
       this.googleLoading.set(true);
       google.accounts.id.initialize({
         client_id: environment.googleClientId,
         callback: (response) => {
           this.zone.run(() => {
-            try { this.handleGSICredential(response); resolve(); }
-            catch (err) { reject(err); }
+            this.handleGSICredential(response)
+              .then(() => {
+                this.googleLoading.set(false);
+                resolve();
+              })
+              .catch((err) => {
+                this.googleLoading.set(false);
+                reject(err);
+              });
           });
         },
         auto_select: false,
